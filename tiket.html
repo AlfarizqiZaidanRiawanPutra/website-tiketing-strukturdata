@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E-Tiket | Tiketing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="noprint"><div class="wrap">
+  <a class="logo" href="index.html"><i class="bi bi-airplane-fill"></i> Tiketing</a>
+</div></nav>
+
+<main class="wrap blok" id="isi"></main>
+
+<dialog id="dlgBatal">
+  <h3><i class="bi bi-exclamation-triangle"></i> Batalkan pesanan?</h3>
+  <p class="sub" id="infoBatal"></p>
+  <div class="aksi">
+    <button class="btn btn-soft" onclick="document.getElementById('dlgBatal').close()">Tidak</button>
+    <button class="btn btn-bahaya" onclick="konfirmasiBatal()"><i class="bi bi-x-circle"></i> Ya, batalkan</button>
+  </div>
+</dialog>
+
+<script src="app.js"></script>
+<script>
+  const kode = new URLSearchParams(location.search).get("kode");
+  const isi = document.getElementById("isi");
+
+  function tampil() {
+    const p = riwayat.cari(kode);
+    if (p === null) {
+      isi.innerHTML = `<div class="kosong"><i class="bi bi-exclamation-circle"></i> Pesanan tidak ditemukan.
+        <p><a class="btn btn-navy" href="index.html">Kembali ke beranda</a></p></div>`;
+      return;
+    }
+    const hotel = p.jenis === "hotel";
+    const batal = p.status === "Dibatalkan";
+    const refund = Math.round(p.total * (1 - POTONGAN_BATAL));
+    const nama = hotel ? "voucher" : "tiket";
+    const barcode = [...(p.kode + p.kode)].map(c => `<i style="width:${1 + c.charCodeAt(0) % 4}px"></i>`).join("");
+
+    isi.innerHTML = `
+      ${batal
+        ? `<div class="gagal noprint"><i class="bi bi-x-circle-fill"></i> Pesanan ini sudah dibatalkan. Dana ${rupiah(refund)} dikembalikan ke ${p.metode}.</div>`
+        : `<div class="sukses noprint"><i class="bi bi-check-circle-fill"></i> Pembayaran berhasil. ${hotel ? "Voucher" : "E-tiket"} Anda sudah terbit.</div>`}
+      <article class="tiket-card ${batal ? "batal" : ""}">
+        <header>
+          <span><i class="bi bi-${hotel ? "building" : "airplane-fill"}"></i> ${hotel ? "Voucher Hotel" : "E-Tiket Pesawat"}</span>
+          <b>${p.kode}</b>
+        </header>
+        <div class="tiket-isi">
+          <span class="status ${batal ? "s-batal" : "s-aktif"}">${batal ? "Dibatalkan" : "Aktif"}</span>
+          <h2>${p.judul}</h2>
+          <p class="sub">${p.detail}</p>
+          <dl>
+            <div><dt>Nama pemesan</dt><dd>${p.nama}</dd></div>
+            <div><dt>Email</dt><dd>${p.email}</dd></div>
+            <div><dt>${hotel ? "Jumlah malam" : "Penumpang"}</dt><dd>${p.jumlah}</dd></div>
+            <div><dt>Total bayar</dt><dd>${rupiah(p.total)}</dd></div>
+            <div><dt>Metode</dt><dd>${p.metode}</dd></div>
+            <div><dt>Waktu pemesanan</dt><dd>${p.waktu}</dd></div>
+            ${batal ? `<div><dt>Dibatalkan pada</dt><dd>${p.waktuBatal || "-"}</dd></div>
+                       <div><dt>Dana kembali</dt><dd>${rupiah(refund)}</dd></div>` : ""}
+          </dl>
+        </div>
+        <footer><div class="barcode">${barcode}</div>
+          <small>${batal ? "Kode ini tidak berlaku lagi" : `Tunjukkan kode ${p.kode} saat check-in`}</small></footer>
+      </article>
+      <div class="aksi noprint">
+        <a class="btn btn-soft" href="index.html"><i class="bi bi-house"></i> Beranda</a>
+        ${batal
+          ? `<button class="btn btn-bahaya" onclick="hapusIni()"><i class="bi bi-trash"></i> Hapus pesanan</button>`
+          : `<button class="btn btn-bahaya" onclick="bukaBatal()"><i class="bi bi-x-circle"></i> Batalkan ${nama}</button>`}
+        <button class="btn btn-navy" onclick="window.print()"><i class="bi bi-printer"></i> Cetak</button>
+      </div>`;
+  }
+
+  function bukaBatal() {
+    const p = riwayat.cari(kode);
+    const refund = Math.round(p.total * (1 - POTONGAN_BATAL));
+    document.getElementById("infoBatal").textContent =
+      `${p.judul} (${p.kode}). Biaya pembatalan ${POTONGAN_BATAL * 100}%, dana kembali ${rupiah(refund)}. Pembatalan tidak dapat diurungkan.`;
+    document.getElementById("dlgBatal").showModal();
+  }
+
+  function konfirmasiBatal() {
+    riwayat.batalkan(kode);   // ubah status node di linked list
+    simpan();                 // simpan ke browser
+    document.getElementById("dlgBatal").close();
+    tampil();
+  }
+
+  function hapusIni() {
+    if (!confirm("Hapus pesanan " + kode + " dari daftar?")) return;
+    riwayat.hapus(kode);
+    simpan();
+    location.href = "index.html";
+  }
+
+  tampil();
+</script>
+</body>
+</html>
